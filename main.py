@@ -5,6 +5,16 @@ USB Drive Inserted → File Copied → Device Ejected
 Process events of a computer to secure it and monitor possible intrusion of exfiltration of data
 """
 
+"""
+Future improvements:
+- Enrich the Event class with more attributes (mac address, user id, file size, etc.)
+- Implement more complex pattern matching ex: device inserted -> multiple file copy -> device ejected within time window
+- Optimize event stream processing for large datasets with parrallel processing or more efficient data structures
+- Add logging and error handling for robustness
+- Add more Query, and make the system process multiple queries at once
+- Etc ... Etc...
+"""
+
 class Event_type(Enum):
     DEVICE_in=1
     DEVICE_out=2
@@ -23,6 +33,10 @@ class Event:
 
 
 class Query:
+    """
+    Define a query with patterns to match and a time window
+    Patterns are list of lambda functions that take an Event and return a boolean if it matches the pattern
+    """
     patterns : list[lambda e: bool]
     time_window: float #seconds
     def __init__(self, patterns: list[lambda e: bool], time_window: float):
@@ -31,6 +45,9 @@ class Query:
 
 
 def initialize_event_stream(file_path: str="events.log") -> list[Event]:
+    """
+    Initialize the event stream from a log file (CSV format: id,timestamp,event_type)
+    """
     stream = []
     with open(file_path, 'r') as f:
         for line in f:
@@ -43,7 +60,16 @@ def initialize_event_stream(file_path: str="events.log") -> list[Event]:
             stream.append(event)
     return stream
 
-def process_event(stream: list[Event], query : Query):
+def process_event_stream(stream: list[Event], query : Query):
+    """
+    Process the event stream to find matches for the given query.
+    1. Iterate through the event stream
+    2. For each event, check if it matches the first pattern in the query
+    3. If it matches, continue to check the subsequent events against the remaining patterns
+    4. If all patterns match within the time window, record the match
+    5. Return the list of matched events and the remaining stream
+    6. If a pattern does not match, discard the first event and continue 
+    """
     event_index = 0
     match_buffer  = [] 
     for pattern in query.patterns:
@@ -75,7 +101,7 @@ def main():
 
     while (len(stream)!=0):
         print(f"Processing stream with {len(stream)} events")
-        match,events, stream = process_event(stream, query_check_intrusive_behavior )
+        match,events, stream = process_event_stream(stream, query_check_intrusive_behavior )
         if match:
             matches.append(events)
         # Remove processed events from stream

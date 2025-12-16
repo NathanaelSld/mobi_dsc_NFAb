@@ -1,5 +1,14 @@
 from main import *
 import random
+"""
+Improvements:
+- More coherent data generation with realistic timestamps and event sequences
+- Exemple : a device should be inserted before file copy events, and ejected afterwards
+- Add more attributes to events for richer data (e.g., user id, file size
+- Implement different distributions for event types based on realistic usage patterns
+- Etc ... Etc...
+"""
+
 def data_generation() -> list[Event]:
     """ 
     Generate a data set to mock the behavior of a stream of events of a computer system.
