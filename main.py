@@ -1,5 +1,7 @@
 from time import time 
 from enum import Enum
+from dataclasses import dataclass
+from typing import Callable
 """
 USB Drive Inserted → File Copied → Device Ejected
 Process events of a computer to secure it and monitor possible intrusion of exfiltration of data
@@ -21,16 +23,15 @@ class Event_type(Enum):
     FILE_copy=3
     FILE_write=4
 
-
+@dataclass
 class Event:
     id: str
     timestamp: float #seconds from epoch
     event_type: Event_type
-    def __init__(self, id: str = "", timestamp: float = 0.0, event_type: Event_type = None):
-        self.id = id
-        self.timestamp = timestamp
-        self.event_type = event_type
-
+@dataclass
+class Pattern:
+    matching_function: Callable[[Event], bool]
+    mutliple_match: bool
 
 class Query:
     """
@@ -44,7 +45,7 @@ class Query:
         self.time_window = time_window
 
 
-def initialize_event_stream(file_path: str="events.log") -> list[Event]:
+def initialize_event_stream(file_path: str="./events.log") -> list[Event]:
     """
     Initialize the event stream from a log file (CSV format: id,timestamp,event_type)
     """
@@ -73,9 +74,13 @@ def process_event_stream(stream: list[Event], query : Query):
     event_index = 0
     match_buffer  = [] 
     for pattern in query.patterns:
-        if pattern(stream[event_index]):
+        if pattern.matching_function(stream[event_index]):
             match_buffer.append(stream[event_index])
             event_index += 1
+            if pattern.mutliple_match:
+                while event_index < len(stream) and pattern.matching_function(stream[event_index]):
+                    match_buffer.append(stream[event_index])
+                    event_index += 1
         else:
             stream = stream[1:]
             return False, [], stream
@@ -86,13 +91,15 @@ def process_event_stream(stream: list[Event], query : Query):
         return False, [], stream
 
 
+
+
 def main():
-    stream= initialize_event_stream("events.log")
+    stream= initialize_event_stream("./events.log")
     query_check_intrusive_behavior = Query(
         patterns=[
-            lambda e: e.event_type == Event_type.DEVICE_in,
-            lambda e: e.event_type == Event_type.FILE_copy,
-            lambda e: e.event_type == Event_type.DEVICE_out,
+            Pattern(lambda e: e.event_type == Event_type.DEVICE_in, False),
+            Pattern(lambda e: e.event_type == Event_type.FILE_copy, True),
+            Pattern(lambda e: e.event_type == Event_type.DEVICE_out, False),
         ],
         time_window=300.0 #5 minutes
     )
